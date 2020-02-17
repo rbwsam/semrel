@@ -6,6 +6,8 @@ import (
 	"github.com/blang/semver"
 	"github.com/pkg/errors"
 	"gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4/plumbing"
+	"gopkg.in/src-d/go-git.v4/plumbing/object"
 )
 
 func Tag(path string) error {
@@ -14,11 +16,27 @@ func Tag(path string) error {
 		return errors.WithStack(err)
 	}
 
-	_, err = LastVersion(r)
+	v, err := LastVersion(r)
+	checkErr(err)
+
+	fmt.Println("Found version:", v.String())
+
 	return err
 }
 
 func LastVersion(r *git.Repository) (semver.Version, error) {
+	tagTable := map[plumbing.Hash]*object.Tag{}
+
+	tagIter, err := r.TagObjects()
+	checkErr(err)
+
+	// Collect all the annotated tags
+	_ = tagIter.ForEach(func(tag *object.Tag) error {
+		tagTable[tag.Target] = tag
+		return nil
+	})
+
+	// Get HEAD commit ref
 	headRef, err := r.Head()
 	checkErr(err)
 
@@ -27,23 +45,28 @@ func LastVersion(r *git.Repository) (semver.Version, error) {
 		Order: git.LogOrderCommitterTime,
 	}
 
-	iter, err := r.Log(logOpts)
+	// Get commit log from HEAD
+	logIter, err := r.Log(logOpts)
 	checkErr(err)
+	defer logIter.Close()
 
-	const maxHistory = 100
-
-	// Loop through commits until we find a semver tag OR we hit our limit
-
-	for i := 0; i < maxHistory; i++ {
-		c, err := iter.Next()
+	// Iterate through commit history until we find a annotated tag in semver format
+	for i := 0; i < 100; i++ {
+		commit, err := logIter.Next()
 		checkErr(err)
 
-		// if c is a semver tag: store the semver, break out of loop
+		if tag, ok := tagTable[commit.Hash]; ok {
+			v, err := semver.ParseTolerant(tag.Name)
+			if err != nil {
+				continue
+			}
 
-		fmt.Println(c.Hash)
+			fmt.Println("Found SemVer tagged commit:", commit.Hash, tag.Name, v.String(), tag.Hash)
+			return v, nil
+		}
 	}
 
-	return semver.Version{}, err
+	return semver.Make("0.0.0")
 }
 
 func checkErr(err error) {
