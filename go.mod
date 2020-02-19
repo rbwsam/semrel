@@ -1,4 +1,4 @@
-module gituhub.com/rbwsam/semrel
+module github.com/rbwsam/semrel
 
 go 1.13
 
