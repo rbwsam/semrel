@@ -1,9 +1,10 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 
+	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
 	"gituhub.com/rbwsam/semrel/internal"
@@ -16,50 +17,40 @@ const (
 func main() {
 	app := &cli.App{
 		Name:     app,
-		Usage: "Manage git releases with Semantic Versioning",
-		Commands: []*cli.Command{tag()},
+		Usage:    "Generate Semantic Versions for your git commits",
+		Commands: []*cli.Command{get()},
 	}
-
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("%+v\n", err)
+		os.Exit(1)
 	}
-
-	/**
-
-	  LAST_VERSION = last valid semver tag OR v0.0.0
-	  NEW_VERSION = ""
-
-	  if HEAD.commit_sha != LAST_VERSION.commit_sha {
-	  	if LAST_VERSION is not a prerelease version {
-	  		if current branch == master {
-	  			set NEW_VERSION to LAST_VERSION with incremented minor version
-	  		} else {
-	  			set NEW_VERSION to LAST_VERSION with incremented patch version
-	  		}
-	  	} else {
-	  		set NEW_VERSION to LAST_VERSION with PRE-RELEASE == ${NUM_REV_PAST_LAST_VERSION_NO_LEADING_ZEROS}.g${HEAD.commit_sha}
-	  	}
-	  }
-
-	  if remote branch release-$(VERSION_MAJOR).$(VERSION_MINOR) does not exist {
-	  	create it from HEAD and push it
-	  }
-	*/
 }
 
-func tag() *cli.Command {
+func get() *cli.Command {
 	return &cli.Command{
-		Name:        "tag",
-		Usage: "Generates a Semantic Version for HEAD and tags it",
+		Name:        "get",
+		Usage:       "Get something",
+		Subcommands: []*cli.Command{version()},
+	}
+}
+
+func version() *cli.Command {
+	return &cli.Command{
+		Name:  "version",
+		Usage: "Prints a Semantic Version for the head commit of the current git repo",
 		Action: func(c *cli.Context) error {
-			path, err := os.Getwd()
+			wd, err := os.Getwd()
 			if err != nil {
 				return err
 			}
 
-			return internal.Tag(path)
+			ver, err := internal.CurrentVersion(wd)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+			fmt.Println(ver)
+			return nil
 		},
 	}
-
 }
