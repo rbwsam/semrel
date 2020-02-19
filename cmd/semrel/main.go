@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	"gituhub.com/rbwsam/semrel/internal"
+	"github.com/rbwsam/semrel/internal"
 )
 
 const (
